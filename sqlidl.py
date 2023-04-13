@@ -12,6 +12,8 @@ from tensorflow.keras.optimizers import Adam
 # read csv file
 df = pd.read_csv('SQLi.csv')
 
+#df = df[df['Label'].isin(['0', '1'])]
+
 # convert to numpy array
 data = df.values
 
@@ -21,6 +23,9 @@ train_data, test_data = data[:40000], data[40000:]
 # split into sentences and labels
 train_sentences, train_labels = train_data[:, 0], train_data[:, 1]
 test_sentences, test_labels = test_data[:, 0], test_data[:, 1]
+
+train_labels = train_labels.astype(np.float64)
+test_labels = test_labels.astype(np.float64)
 
 # create a vocabulary
 vocab_size = 10000
@@ -54,7 +59,17 @@ model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']
 num_epochs = 10
 history = model.fit(train_padded, train_labels, epochs=num_epochs, validation_data=(test_padded, test_labels), verbose=2)
 
-#
+# save the model
+#model.save('sqlidl.h5')
+#predict the model
+sql = ["SELECT id, key, helo  FROM abc  WHERE id  IN  ( 3 )  ORDER BY id ASC "]
+sql_sequence = tokenizer.texts_to_sequences(sql)
+sql_padded = pad_sequences(sql_sequence, maxlen=max_length, padding='post', truncating='post')
+
+if model.predict(sql_padded)[0][0] > 0.5:
+    print("SQLi")
+else:
+    print("Normal")
 
 
 
