@@ -1,5 +1,10 @@
 import numpy as np
 import pandas as pd
+import pickle
+
+from sklearn.model_selection import train_test_split
+
+import tensorflow as tf
 
 # import word embedding
 from tensorflow.keras.preprocessing.text import Tokenizer
@@ -18,7 +23,7 @@ df = pd.read_csv('SQLi.csv')
 data = df.values
 
 # split into train and test
-train_data, test_data = data[:40000], data[40000:]
+train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
 
 # split into sentences and labels
 train_sentences, train_labels = train_data[:, 0], train_data[:, 1]
@@ -35,6 +40,10 @@ max_length = 120
 # create a tokenizer
 tokenizer = Tokenizer(num_words=vocab_size, oov_token='<OOV>')
 tokenizer.fit_on_texts(train_sentences)
+
+# save the tokenizer
+with open('tokenizer.pkl', 'wb') as handle:
+    pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 # convert the sentences to index
 train_sequences = tokenizer.texts_to_sequences(train_sentences)
@@ -55,21 +64,34 @@ model.add(Dense(1, activation='sigmoid'))
 # Compile the model
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
+#call back model
+callback = tf.keras.callbacks.ModelCheckpoint('sqlidl.h5', monitor='val_loss')
 # Train the model
 num_epochs = 10
-history = model.fit(train_padded, train_labels, epochs=num_epochs, validation_data=(test_padded, test_labels), verbose=2)
+history = model.fit(train_padded, train_labels, epochs=num_epochs, validation_data=(test_padded, test_labels), verbose=2, callbacks=[callback])
 
-# save the model
-#model.save('sqlidl.h5')
 #predict the model
-sql = ["SELECT id, key, helo  FROM abc  WHERE id  IN  ( 3 )  ORDER BY id ASC "]
-sql_sequence = tokenizer.texts_to_sequences(sql)
-sql_padded = pad_sequences(sql_sequence, maxlen=max_length, padding='post', truncating='post')
+def predict(sentence):
+    sequences = tokenizer.texts_to_sequences([sentence])
+    padded = pad_sequences(sequences, maxlen=max_length, padding='post', truncating='post')
+    if model.predict(padded)[0][0] > 0.5:
+        print('SQLi')
+    else:
+        print('Normal')
 
-if model.predict(sql_padded)[0][0] > 0.5:
-    print("SQLi")
-else:
-    print("Normal")
+# predict the model
+predict('SELECT Employees.LastName, COUNT ( Orders.OrderID )  AS NumberOfOrders FROM  ( Orders INNER JOIN Employees ON Orders.EmployeeID  =  Employees.EmployeeID )  GROUP BY LastName HAVING COUNT ( Orders.OrderID )  > 10;')
+predict('SELECT * FROM users WHERE username = "admin" AND password = "password" OR 1=1')
+predict('Hello World!')
+predict('union select version(),user(),3,4,--+-')
+predict('from users where id  =  1<@<@ union select 1,version()-- 1')
+predict('SELECT min (failed) FROM nation SELECT SUM(economy)')
+predict('UnIOn sElecT 1,2,3,id(),--+-')
+
+# check weights and accuracy
+print(model.evaluate(test_padded, test_labels))
+
+
 
 
 
