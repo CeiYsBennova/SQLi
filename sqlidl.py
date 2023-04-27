@@ -16,6 +16,7 @@ from tensorflow.keras.optimizers import Adam
 
 # read csv file
 df = pd.read_csv('SQLi.csv')
+#df = pd.read_csv('wafamole_dataset.csv')
 
 #df = df[df['Label'].isin(['0', '1'])]
 
